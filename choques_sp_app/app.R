@@ -1,20 +1,21 @@
 #Autor: Rodrigo Benavides
 #Fecha: Enero 17, 2019
 
-#Objetivo del script es poder visualizar en un mapa donde es la ubicación con mayor cantidad de choques en San Pedro.
-#Los datos son de Enero 2014 a Septiembre del 2016.
+#Objetivo del script es poder visualizar en un mapa donde es la ubicación con mayor cantidad de choques en San Pedro y visualizar incidencias de distintos tipos de accidentes
+#Los datos son de Enero 2014 a Septiembre del 2016 para los choques y Enero 2016 a Septiembre 2018 para los resultados de accidentes
 library(shiny)
 library(tidyverse)
 library(leaflet)
 library(sf)
 library(DT)
+library(zoo)
 
 #Importar datos y cambiar formato de nombres de las calles
 accidentes_cruceros <- read_csv("data/ACCIDENTES_CRUCEROS_SAN_PEDRO.csv")%>%
     #rename_all(iconv)%>%
     rename(anio = "año") %>%
-    mutate(calle1 = iconv(calle1),
-           calle2 = iconv(calle2),
+    mutate(calle1 = iconv(calle1, from = "UTF-8", to = "UTF-8"),
+           calle2 = iconv(calle2, from = "UTF-8", to = "UTF-8"),
            fechaCorte = as.Date(fechaCorte, format = "%d/%m/%Y"))
 
 #Quedarnos con los nombres de los cruces para despues pegar sus coordenadas
@@ -22,6 +23,7 @@ coordenadas_cruces <- accidentes_cruceros %>%
     distinct(calle1,calle2)%>%
     arrange(calle1, calle2)
 
+#NO CAMBIAR EL ORDEN
 coordenadas_cruces$latitud <- c(25.65716, 25.65381, 25.65945, 25.67473, 25.67048,
                                 25.64012, 25.65275, 25.66262, 25.66788, 25.65179, 
                                 25.65158, 25.65399, 25.65214, 25.65337, 25.65380, 
@@ -39,20 +41,19 @@ info_accidentes <- read_csv("data/ACCIDENTES_VIALES_SP.csv")%>%
     rename_all(iconv)%>%
     rename_all(tolower)%>%
     rename(anio = "año", accidente_vial = "accidente vial")%>%
-    mutate(mes = ifelse(str_count(mes) == 1, paste0("0", mes), mes), 
-           anio_mes = as.yearmon(paste0(anio,"-",mes))
-           )
-
-
+    mutate(
+        mes = ifelse(str_count(mes) == 1, paste0("0", mes), mes),
+        mes_fecha = as.Date(paste0(anio,"-",mes, "-01")),
+        anio_mes = as.yearmon(paste0(anio,"-",mes))
+        )
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
-
-    # Application title
+    # Titulo de aplicacion
     titlePanel("Información sobre choques en SPGG en distintos años"),
-    h3("Primer tab podemos ver la ubicación de los choques y en el segundo tab alguna información extra de otros choques"),
-    # Sidebar with a slider input for number of bins 
-    tabsetPanel(
+    em(h3("Primer tab podemos ver la ubicación de los choques y en el segundo tab más información de otros accidentes")),
+
+        tabsetPanel(
         tabPanel(title = "Accidentes en Cruceros",
                  h3("Cantidad de choques en 20 cruces de San Pedro Garza Garcia"),
                  sidebarLayout(
@@ -68,6 +69,7 @@ ui <- fluidPage(
                                   actionButton(inputId = "ejecutar",
                                                label = "Ejecutar"
                                   ),
+                                  br(),
                                   br(),
                                   h5("Nota: El año 2016 tiene datos hasta el 30 de Septiembre")
                      ),
@@ -87,20 +89,19 @@ ui <- fluidPage(
                      )
                  ),
         tabPanel(title = "Resultados de Accidentes",
-                 h3("Más Información acerca de distintos choques, por mes"),
+                 h3("Más Información acerca de distintos accidentes, por mes"),
                  sidebarLayout(
                      sidebarPanel(width = 3,
-                                  checkboxGroupInput(inputId = "anio_checkbox_cruces_tipo",
-                                                     label = "Indique los años que quiera ver",
-                                                     selected = sort(unique(info_accidentes$anio)),
-                                                     choices = sort(unique(info_accidentes$anio))
+                                  sliderInput(inputId = "rango_fechas_info", 
+                                              label = "Escoge el rango de fechas",
+                                              min = min(info_accidentes$mes_fecha),
+                                              max = max(info_accidentes$mes_fecha),
+                                              value = c(min(info_accidentes$mes_fecha),
+                                                        max(info_accidentes$mes_fecha)),
+                                              timeFormat="%b %Y"
                                   ),
-                                  actionLink("seleccionar_todo2","Seleccionar Todos"),
+                                
                                   br(),
-                                  br(),
-                                  actionButton(inputId = "ejecutar2",
-                                               label = "Ejecutar"
-                                  ),
                                   br(),
                                   h5("Nota: El año 2018 tiene datos hasta el 30 de Septiembre")
                      ),
@@ -109,8 +110,31 @@ ui <- fluidPage(
                      mainPanel(
                          #h3(paste0("Los datos son entre Enero del ", fecha_inicio, " y ", fecha_final)),
                          tabsetPanel(
-                             tabPanel(title = "Visualizaciones"#,
-                                      #leafletOutput(outputId = "mymap")
+                             tabPanel(title = "Visualizaciones",
+                                      fluidRow(
+                                          column(6,
+                                                 h4("Cantidad de accidentes con menores"),
+                                                 h4("En el verano se ve que hay menos accidentes involucrando a menores.\nQue bien que haya una tendencia a la baja"),
+                                                 plotOutput(outputId = "grafica_menores")
+                                          ),
+                                          column(6,
+                                                 h4("Cantidad de accidentes con lesionados"),
+                                                 h4("En todos los meses se lesiona gente en accidentes"),
+                                                 plotOutput(outputId = "grafica_lesionados")
+                                          )
+                                      ),
+                                      fluidRow(
+                                          column(6,
+                                                 h4("Cantidad de accidentes con alcohol"),
+                                                 h4("Hace falta más conciencia en la gente de NO manejar Y tomar"),
+                                                 plotOutput(outputId = "grafica_alcohol")
+                                          ),
+                                          column(6,
+                                                 h4("Cantidad de accidentes con muerte"),
+                                                 h4("Desafortunadamente no pasan más de tres meses sin alguna muerte"),
+                                                 plotOutput(outputId = "grafica_muertes")
+                                          )
+                                      )
                              ),
                              tabPanel(title = "Tabla Datos",
                                       DT::dataTableOutput(outputId = "tabla_reporte_viales")
@@ -120,7 +144,9 @@ ui <- fluidPage(
                  )
                  )
     ),
-    h4("Datos de choques obtenidos de la página oficial del gobierno de San Pedro Garza García")
+    h4("Datos de choques obtenidos de la página oficial del gobierno de San Pedro Garza García"),
+    h4("Por favor leer documento de ReadMe para más información acerca de esta plataforma")
+    
 )
 
 # Define server logic required to draw a histogram
@@ -186,76 +212,75 @@ server <- function(input, output, session) {
     })
     
     output$tabla_reporte_cruces <- DT::renderDataTable({
-        DT::datatable(select(reporte_cruces(),-popup),
-                       colnames = c("Calle 1" = 'calle1', "Calle 2" = 'calle2', 
-                                    "Choques Totales" = 'cantidad_de_choques' , "Latitud" = 'latitud',
-                                    "Longitud" = 'longitud'
-                                    )
-                      )
+        DT::datatable(
+            select(reporte_cruces(),-popup),
+            colnames = c("Calle 1" = 'calle1', "Calle 2" = 'calle2',
+                         "Choques Totales" = 'cantidad_de_choques' , "Latitud" = 'latitud',
+                         "Longitud" = 'longitud'
+                         )
+            )
     })
     #######
-    observe({
-        if(input$seleccionar_todo2 == 0) return(NULL) 
-        else if (input$seleccionar_todo%%2 == 0)
-        {
-            updateCheckboxGroupInput(session,"anio_checkbox_cruces2",
-                                     "Indique los años que quiera ver",
-                                     choices=sort(unique(info_accidentes$anio))
-            )
-        }
-        else
-        {
-            updateCheckboxGroupInput(session,"anio_checkbox_cruces2",
-                                     "Indique los años que quiera ver",
-                                     selected = sort(unique(info_accidentes$anio)),
-                                     choices = sort(unique(info_accidentes$anio))
-            )
-        }
-    })
-    
-    reporte_viales <- eventReactive(input$ejecutar2, {
+    reporte_viales <- reactive({
         #Obtener la cantidad total de choques por cruce.
         info_accidentes %>%
-            filter(anio %in% input$anio_checkbox_cruces2)
-    })
+            filter(mes_fecha >= input$rango_fechas_info[1],
+                   mes_fecha <= input$rango_fechas_info[2])    
+            })
     
-    grafica_alcohol <- renderPlot({
+    output$grafica_alcohol <- renderPlot({
         ggplot(data = filter(reporte_viales(), accidente_vial == "Alcohol"), aes(x = anio_mes, y = cantidad)) + 
             geom_bar(stat = "identity", fill = "gold2") +
             scale_x_yearmon(n = 5, format = "%B %Y") + 
-            labs(x = "Tiempo", y = "Cantidad de Incidentes", title = "Hace falta más conciencia en la gente \nde no manejar y tomar",
-                 subtitle = "No se ve una tendencia negativa notoria")+
-            theme_bw()
-    })
-    
-    grafica_menores <- renderPlot({
-        ggplot(data = filter(reporte_viales(), accidente_vial == "Menores"), aes(x = anio_mes, y = cantidad)) + 
-            geom_bar(stat = "identity", fill = "blue") +
-            scale_x_yearmon(n = 5, format = "%B %Y") + 
-            labs(x = "Tiempo", y = "Cantidad de Incidentes", title = "En el verano se ve que hay menos \naccidentes involucrando menores")+
+            labs(x = "Tiempo", y = "Cantidad de Incidentes", 
+                 title = "Línea negra es el promedio del periodo")+
+            geom_hline(yintercept = mean(df$cantidad), color = "black", size = 1.25)+
             theme_bw()
         
     })
     
-    grafica_lesionados <- renderPlot({
-        ggplot(data = filter(reporte_viales(), accidente_vial == "Lesionado"), aes(x = anio_mes, y = cantidad)) + 
+    output$grafica_menores <- renderPlot({
+        df <- filter(reporte_viales(), accidente_vial == "Menores")
+        
+        ggplot(data = df, aes(x = anio_mes, y = cantidad)) + 
             geom_bar(stat = "identity", fill = "blue") +
             scale_x_yearmon(n = 5, format = "%B %Y") + 
-            labs(x = "Tiempo", y = "Cantidad de Incidentes", title = "En todos los meses gente se lesiona en accidentes", caption = "Línea roja es el promedio") +
-            geom_hline(yintercept = mean(filter(reporte_viales(), accidente_vial == "Lesionado")$cantidad), color = "red")+
+            labs(x = "Tiempo", y = "Cantidad de Incidentes")+
+            theme_bw()
+        
+    })
+    
+    output$grafica_lesionados <- renderPlot({
+        df <- filter(reporte_viales(), accidente_vial == "Lesionado")
+        
+        ggplot(data = df, aes(x = anio_mes, y = cantidad)) + 
+            geom_bar(stat = "identity", fill = "red") +
+            scale_x_yearmon(n = 5, format = "%B %Y") + 
+            labs(x = "Tiempo", y = "Cantidad de Incidentes", title = "Línea negro es el promedio del periodo") +
+            geom_hline(yintercept = mean(df$cantidad), color = "black", size = 1.25)+
             theme_bw()
     })
     
-    grafica_muertos <- renderPlot({
-        ggplot(data = filter(reporte_viales(), accidente_vial == "Muertes"), aes(x = anio_mes, y = cantidad)) + 
+    output$text0_alcohol <- renderText({
+        
+    })
+    
+    output$grafica_muertes <- renderPlot({
+        df <- filter(reporte_viales(), accidente_vial == "Muertes")
+        
+        ggplot(data = df, aes(x = anio_mes, y = cantidad)) + 
             geom_bar(stat = "identity", fill = "darkred") +
             scale_x_yearmon(n = 5, format = "%B %Y") + 
-            labs(x = "Tiempo", y = "Cantidad de Incidentes", title = "Desafortunadamente no pasan más de tres meses sin alguna muerte")+
+            labs(x = "Tiempo", y = "Cantidad de Incidentes")+
             theme_bw()
     })
     
     output$tabla_reporte_viales <- DT::renderDataTable({
-        DT::datatable(reporte_viales())
+        DT::datatable(
+            select(reporte_viales(), -anio_mes, -mes_fecha),
+            colnames = c("Año" = 'anio', "Mes" = 'mes',
+                         "Tipo de Accidente" = 'accidente_vial' , "Cantidad" = 'cantidad')
+        )
     })
 }
 
