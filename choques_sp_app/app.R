@@ -38,9 +38,8 @@ coordenadas_cruces$longitud <-  c(-100.37038, -100.35807, -100.36950, -100.40281
 accidentes_cruceros <- left_join(accidentes_cruceros, coordenadas_cruces, by = c("calle1", "calle2"))
 
 info_accidentes <- read_csv("data/ACCIDENTES_VIALES_SP.csv")%>%
-    rename_all(iconv)%>%
     rename_all(tolower)%>%
-    rename(anio = "año", accidente_vial = "accidente vial")%>%
+    rename(accidente_vial = "accidente vial")%>%
     mutate(
         mes = ifelse(str_count(mes) == 1, paste0("0", mes), mes),
         mes_fecha = as.Date(paste0(anio,"-",mes, "-01")),
