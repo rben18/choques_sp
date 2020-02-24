@@ -31,6 +31,8 @@ A su vez, en un accidente, no está claro si un caso de "menores" significa que 
 4) Estos son los casos que San Pedro tiene registrados, ¿cuantos se "resolveran" de manera informal sin involucrar a las autoridades?
 5) Con esta información, ¿qué se puede hacer al respecto? Por ejemplo, si vemos que hay muchos casos de "Alcohol" en todo el año, quizá ser más estricto con las antialcoholicas por más tiempo aparte de la época Navideña. A su vez, promocionar de una distinta manera el hecho de no manejar y tomar. Si hay muchos casos de menores chocando, ¿habrá que mejorar los cursos de manejo? Estas son las preguntas que pueden salir con un análisis de estos datos. 
 
+Algunos llamarían a esta herramienta como una de "business intelligence," sin embargo, con más datos esto se pudiera volver un visualizador de proyectos de inteligencia artifical o aprendizaje de máquina. Esto es el primer paso para entender una problemática. 
+
 Visualizar datos puede desatar a la curiosidad y traer grandes cambios. Tener datos es la mitad de la batalla, también hay que saber usarlos.
 
 
