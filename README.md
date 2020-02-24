@@ -1,7 +1,11 @@
 # choques_sp
+
 Este es el repositorio para analizar choques en el municipio de San Pedro. Aquí se puede encontrar el codigo de una "Shiny App" para visualizar en un mapa de OpenStreetMap la cantidad de choques que hubo en 20 distintos cruces en San Pedro. También se puede ver información de otros accidentes que sucedieron en otros años. 
 
 Los choques para los cruces ocurrieron entre Enero del 2014 y Septiembre del 2016. La información de los accidentes son entre Enero del 2016 y Septiembre del 2018. Los datos vienen de la página de "Datos Abiertos" en la página del municipio de San Pedro Garza García: http://datosabiertos.sanpedro.gob.mx/pagesda/Default.aspx?
+
+# Link para la aplicación: https://roben18.shinyapps.io/choques_sp_app/
+
 
 - Tab "Accidentes en Cruceros":
 
